@@ -72,11 +72,15 @@ async function startServer() {
   app.use(cors());
   app.use(express.json());
 
-  // Request logging
+  // Broad request logging
   app.use((req, res, next) => {
-    if (req.url.startsWith('/api')) {
-      console.log(`${req.method} ${req.url}`);
-    }
+    console.log(`[${new Date().toISOString()}] INCOMING: ${req.method} ${req.url}`);
+    next();
+  });
+
+  // Explicitly set JSON content type for all API routes
+  app.use("/api", (req, res, next) => {
+    res.setHeader('Content-Type', 'application/json');
     next();
   });
 
@@ -96,18 +100,12 @@ async function startServer() {
     });
   });
 
-  // API Routes
-  const apiRouter = express.Router();
-
-  // Ensure all API responses are JSON
-  apiRouter.use((req, res, next) => {
-    res.setHeader('Content-Type', 'application/json');
-    next();
+  // API: Sync User Data
+  app.get("/api/test", (req, res) => {
+    res.json({ message: "API is working", time: new Date().toISOString() });
   });
 
-  // API: Sync User Data
-  apiRouter.post("/users/sync", async (req, res) => {
-    console.log("Sync request received for UID:", req.body?.uid);
+  app.post("/api/users/sync", async (req, res) => {
     const { uid, email, displayName, photoURL } = req.body || {};
     if (!uid) return res.status(400).json({ error: "UID required" });
 
@@ -138,7 +136,7 @@ async function startServer() {
   });
 
   // API: Get User Data
-  apiRouter.get("/users/:uid", async (req, res) => {
+  app.get("/api/users/:uid", async (req, res) => {
     const { uid } = req.params;
     try {
       if (mongoose.connection.readyState < 1) {
@@ -153,7 +151,7 @@ async function startServer() {
   });
 
   // Stripe Checkout Session API
-  apiRouter.post("/create-checkout-session", async (req, res) => {
+  app.post("/api/create-checkout-session", async (req, res) => {
     const { items, userId } = req.body || {};
     
     try {
@@ -189,12 +187,10 @@ async function startServer() {
     }
   });
 
-  // Catch-all for missing API routes (must be at the end of apiRouter)
-  apiRouter.all("*", (req, res) => {
-    res.status(404).json({ error: `API route not found: ${req.method} ${req.originalUrl}` });
+  // Catch-all for missing API routes to prevent SPA fallback
+  app.all("/api/*", (req, res) => {
+    res.status(404).json({ error: `API route not found: ${req.method} ${req.url}` });
   });
-
-  app.use("/api", apiRouter);
 
   // Vite middleware for development
   if (process.env.NODE_ENV !== "production") {

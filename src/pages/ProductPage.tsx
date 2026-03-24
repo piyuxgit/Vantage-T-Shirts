@@ -3,7 +3,7 @@ import { PRODUCTS } from '../constants';
 import { Product } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
 import { X, ChevronLeft, ChevronRight, ArrowLeft } from 'lucide-react';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 
 export default function ProductPage({ 
   onAddToCart 
@@ -17,6 +17,22 @@ export default function ProductPage({
   const [currentImage, setCurrentImage] = useState(0);
   const [selectedSize, setSelectedSize] = useState('');
   const [showSizeChart, setShowSizeChart] = useState(false);
+  const [showSizeError, setShowSizeError] = useState(false);
+  const sizeRef = useRef<HTMLDivElement>(null);
+
+  const handleSizeSelect = (size: string) => {
+    setSelectedSize(size);
+    setShowSizeError(false);
+  };
+
+  const validateSize = () => {
+    if (!selectedSize) {
+      setShowSizeError(true);
+      sizeRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      return false;
+    }
+    return true;
+  };
 
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -105,9 +121,20 @@ export default function ProductPage({
           <h1 className="text-6xl md:text-8xl font-bold tracking-tighter mb-8 leading-none italic font-serif uppercase">{product.name}</h1>
           <p className="text-4xl font-bold mb-12 font-mono">₹{product.price}</p>
           
-          <div className="mb-12">
+          <div className="mb-12" ref={sizeRef}>
             <div className="flex justify-between items-center mb-8">
-              <span className="text-[10px] font-bold uppercase tracking-[0.4em]">Select_Size</span>
+              <div className="flex flex-col gap-2">
+                <span className="text-[10px] font-bold uppercase tracking-[0.4em]">Select_Size</span>
+                {showSizeError && (
+                  <motion.span 
+                    initial={{ opacity: 0, x: -10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    className="text-[10px] font-bold text-red-600 uppercase tracking-widest"
+                  >
+                    Please select a size to continue
+                  </motion.span>
+                )}
+              </div>
               <button 
                 onClick={() => setShowSizeChart(true)}
                 className="text-[10px] font-bold uppercase tracking-widest underline underline-offset-8 hover:text-accent"
@@ -119,8 +146,8 @@ export default function ProductPage({
               {product.sizes.map(size => (
                 <button
                   key={size}
-                  onClick={() => setSelectedSize(size)}
-                  className={`py-5 text-sm font-bold border-2 rounded-2xl transition-all ${selectedSize === size ? 'bg-neon text-black border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] scale-105' : 'hover:border-black border-gray-100'}`}
+                  onClick={() => handleSizeSelect(size)}
+                  className={`py-5 text-sm font-bold border-2 rounded-2xl transition-all ${selectedSize === size ? 'bg-neon text-black border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] scale-105' : 'hover:border-black border-gray-100'} ${showSizeError && !selectedSize ? 'border-red-600' : ''}`}
                 >
                   {size}
                 </button>
@@ -148,16 +175,22 @@ export default function ProductPage({
 
           <div className="grid grid-cols-1 gap-4 mt-auto">
             <button
-              disabled={!selectedSize}
-              onClick={() => onAddToCart(product, selectedSize)}
-              className="w-full py-7 bg-black text-white rounded-[2rem] font-bold tracking-[0.4em] text-xs hover:bg-neon hover:text-black transition-all disabled:opacity-30 disabled:cursor-not-allowed shadow-2xl active:scale-[0.98]"
+              onClick={() => {
+                if (validateSize()) {
+                  onAddToCart(product, selectedSize);
+                }
+              }}
+              className="w-full py-7 bg-black text-white rounded-[2rem] font-bold tracking-[0.4em] text-xs hover:bg-neon hover:text-black transition-all shadow-2xl active:scale-[0.98]"
             >
-              {selectedSize ? 'ADD TO BAG' : 'SELECT SIZE'}
+              ADD TO BAG
             </button>
             <button
-              disabled={!selectedSize}
-              onClick={() => navigate(`/payment?productId=${product.id}&size=${selectedSize}`)}
-              className="w-full py-7 border-2 border-black text-black rounded-[2rem] font-bold tracking-[0.4em] text-xs hover:bg-black hover:text-white transition-all disabled:opacity-30 disabled:cursor-not-allowed shadow-sm active:scale-[0.98]"
+              onClick={() => {
+                if (validateSize()) {
+                  navigate(`/payment?productId=${product.id}&size=${selectedSize}`);
+                }
+              }}
+              className="w-full py-7 border-2 border-black text-black rounded-[2rem] font-bold tracking-[0.4em] text-xs hover:bg-black hover:text-white transition-all shadow-sm active:scale-[0.98]"
             >
               BUY NOW
             </button>
